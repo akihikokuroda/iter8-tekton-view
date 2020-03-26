@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Experiment Status</title>
+  <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+</head>
+
+<body>
+  <h1>Experiment Status</h1>
+  <div id='experiment'></div>
+  <input type="range" min="1" max="100" value="50" class="slider" id='traffic'>
+  <table style="width:100%">
+    <tr>
+      <td>
+        <p>
+          <div id="mode"> Balanced Deploy </div>
+          <div>
+            <input type="range" min="0" max="100" value="50" class="slider" id="leftRightSider">
+          </div>
+        </p>
+      </td>
+      <td>
+        <p>
+          <div id="trim"> History </div>
+          <input type="range" min="10" max="500" value="100" class="slider" id="trimmer">
+        </p>
+      </td>
+      <td>
+        <p>
+          <div id="pollrate"> Poll Rate </div>
+          <input type="range" min="10" max="1000" value="100" class="slider" id="poller">
+        </p>
+      </td>
+    </tr>
+  </table>
+  <div id="json"> 
+
+  <script>
+    function getExperimentStatus(url, updateCB, errorCB) {
+      var xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function () {
+        if (this.readyState == 4) {
+          if (this.status == 200) { 
+            try {
+              const data = JSON.parse(this.responseText);
+              data.url = url;
+              updateCB(data);
+            } catch(err) { 
+              // keep going 
+              const data = { "left": 0, "right": 0, "url": url};
+              updateCB(data);
+            }  
+          } else {
+            if (errorCB) errorCB();
+          }
+        }
+      };
+      xhttp.open("GET", "monitor/iter8-demo-d2bce9ad992b5718c0b8b37f568c7c4c83fdfedd", true);
+      xhttp.setRequestHeader('Content-type', 'application/json');
+      xhttp.setRequestHeader('Accept', 'application/json');
+      xhttp.setRequestHeader('cache-control', 'no-cache, must-revalidate, post-check=0, pre-check=0');
+      xhttp.setRequestHeader('cache-control', 'max-age=0');
+      xhttp.setRequestHeader('expires', '0');
+      xhttp.setRequestHeader('expires', 'Tue, 01 Jan 1980 1:00:00 GMT');
+      xhttp.setRequestHeader('pragma', 'no-cache');
+      xhttp.send();
+    }
+    var configuration = {
+      "versions": new Object(),
+      "total": 0,
+      "max_history": 100,
+      "history": [],
+      "url": 'test',
+      "debug": true,
+      "period": 30,
+      "enableAB": false
+    };
+
+    function prettyPrintLeftRight(left) {
+      return "L/R Balance = " + left + "/" + (100 - left)
+    }
+    var slider = document.getElementById("leftRightSider");
+    slider.oninput = function () {
+      document.getElementById("mode").innerHTML = prettyPrintLeftRight(this.value);
+    }
+    function setBalance(balance, cb) {
+    }
+
+    slider.onchange = function () {
+      document.getElementById("mode").innerHTML = prettyPrintLeftRight(this.value);
+      setBalance(this.value, updateBalance);
+    }
+
+    function updateBalance(ret) {
+      document.getElementById("mode").innerHTML = prettyPrintLeftRight(ret.left);
+    }
+    function updateBalanceAndSlider(ret) {
+      updateBalance(ret);
+      
+      slider.value = ret.left;
+      
+    }
+
+    function hookupdate() {
+      setTimeout("updateconfig()", 50000);
+    }
+    function updateBalanceAndSlider_rehook_update(ret) {
+      updateBalance(ret);
+      
+      slider.value = ret.left;
+      
+      hookupdate();
+    }
+
+    function updateconfig() {
+      console.log ("updateconfig" + " AB " + configuration.enableAB);
+      if (configuration.enableAB) { 
+        console.log ("updateconfig perform AB Poll");
+      }
+    }
+
+    var trimmer = document.getElementById("trimmer");
+    trimmer.oninput = function () {
+      document.getElementById("trim").innerHTML = 'History: ' + this.value;
+      configuration.max_history = this.value;
+    }
+    trimmer.onchange = trimmer.oninput;
+    function setPeriod(p) {
+      document.getElementById("pollrate").innerHTML =
+        'Poll Rate: ' + p + ' ms';
+      configuration.period = p;
+      poller.value = p;
+    }
+    var poller = document.getElementById("poller");
+    poller.oninput = function () {
+      setPeriod(this.value)
+    }
+    poller.onchange = poller.oninput;
+
+    function hookpoll() {
+      setTimeout("poll()", configuration.period);
+    }
+    // reset poll only after response to prevent overruning target server.
+    function poll() {
+      getExperimentStatus(configuration.url, showExperimentStatus, hookpoll);
+   }
+
+    function showExperimentStatus(data) {
+        document.getElementById("experiment").innerHTML =
+	  '<dl>' +
+	  '<dt>Name</dt>' +
+	  '<dd>' + data.name  + '</dd>' +
+	  '<dt>Baseline</dt>' +
+	  '<dd>' + data.baseline  + '</dd>' +
+	  '<dt>Candidate</dt>' +
+	  '<dd>' + data.candidate  + '</dd>' +
+	  '<dt>CurrentIteration</dt>' +
+	  '<dd>' + data.currentiteration  + '</dd>' +
+	  '<dt>Message</dt>' +
+	  '<dd>' + data.message  + '</dd>' +
+	  '<dt>Baseline Traffic</dt>' +
+	  '<dd>' + data.baselinetraffic  + '</dd>' +
+	  '<dt>Candidate Traffic</dt>' +
+	  '<dd>' + data.candidatetraffic  + '</dd>' +
+	  '<dt>Conclusions</dt>' +
+	  '<dd>' + data.conclusions  + '</dd>' +
+	    '</dl>';
+	updateTraffic(data);
+	hookpoll()
+    }
+
+    function updateTraffic(data) {
+        var traffic = document.getElementById("traffic");
+        traffic.innerHTML = 60;
+    }
+
+    poll();
+    updateconfig();
+    trimmer.onchange()
+    poller.onchange()
+  </script>
+</body>
+
+</html>

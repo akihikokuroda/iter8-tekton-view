@@ -1,0 +1,225 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: view
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: view-role-binding
+  namespace: kabanero
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: view-role
+subjects:
+- kind: ServiceAccount
+  name: view
+  namespace: kabanero
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: view-role
+  namespace: kabanero
+rules:
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  - ingresses/status
+  verbs:
+  - delete
+  - create
+  - patch
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  - namespaces
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - get
+  - list
+  - create
+  - delete
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - tekton.dev
+  resources:
+  - tasks
+  - clustertasks
+  - taskruns
+  - pipelines
+  - pipelineruns
+  - pipelineresources
+  - eventlisteners
+  - triggerbindings
+  - triggertemplates
+  - conditions
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - tekton.dev
+  resources:
+  - taskruns/finalizers
+  - pipelineruns/finalizers
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - tekton.dev
+  resources:
+  - tasks/status
+  - clustertasks/status
+  - taskruns/status
+  - pipelines/status
+  - pipelineruns/status
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - iter8.tools
+  resources:
+  - experiments
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: view
+  labels:
+    app: view
+spec:
+  ports:
+  - port: 8080
+    name: http
+  selector:
+    app: view
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: view
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        group: istiodemo
+        app: view
+    spec:
+      serviceAccountName: view
+      containers:
+      - name: view
+        image: "github.com/iter8-tekton/cmd/"
+        resources:
+          limits:
+            cpu: "400m"
+            memory: "256Mi"
+          requests:
+            cpu: "400m"
+            memory: "128Mi"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: view
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - view-gateway
+  http:  
+   - route:
+     - destination:
+        host: view
+        port:
+          number: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: view-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"

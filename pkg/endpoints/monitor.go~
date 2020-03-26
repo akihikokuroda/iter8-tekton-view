@@ -1,0 +1,25 @@
+package endpoints
+
+import (
+        "fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	restful "github.com/emicklei/go-restful"
+)
+
+// RegisterMonitorbService registers the monitor service
+func (r Resource) RegisterMonitorService(container *restful.Container) {
+	ws := new(restful.WebService)
+	ws.Path("/monitor")
+	ws.Route(ws.GET("/{experiment-id}").To(r.checkStatus))
+
+	container.Add(ws)
+}
+func (r Resource) checkStatus(request *restful.Request, response *restful.Response) {
+        fmt.Println("Hello, world.")
+        fmt.Println(request.PathParameter("experiment-id"))
+	_, err := r.experimentClient.Namespace("kabanero").List( metav1.ListOptions{})
+	if err != nil {
+            fmt.Println(err)
+	}
+	response.WriteEntity("Hi!")
+}

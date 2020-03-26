@@ -1,0 +1,29 @@
+package endpoints
+
+import (
+        "fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	restful "github.com/emicklei/go-restful"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+// RegisterWeb registers the web
+func (r Resource) RegisterWeb(container *restful.Container) {
+	ws := new(restful.WebService)
+	ws.Path("/")
+	ws.Route(ws.GET("/{experiment-id}").To(r.checkStatus))
+
+	container.Add(ws)
+	fs := http.FileServer(http.Dir("web"))
+	container.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "deny")
+		fs.ServeHTTP(w, r)
+	}))
+}
+func (r Resource) checkStatus(request *restful.Request, response *restful.Response) {
+        fmt.Println("Hello, world.")
+        id := request.PathParameter("experiment-id")
+	get, err := r.experimentClient.Namespace("kabanero").Get( id, metav1.GetOptions{})
+	if err != nil {
+            fmt.Println(err)
+	}
